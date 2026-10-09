@@ -339,6 +339,7 @@
             color: var(--text-main);
             width: 32px;
             height: 32px;
+            border-permissions: 50%;
             border-radius: 50%;
             font-size: 16px;
             cursor: pointer;
@@ -530,7 +531,10 @@
 
         <!-- Action Bar -->
         <div class="action-bar">
-            <div style="width: 44px;"></div> <!-- Spacer -->
+            <!-- Red Filter Quick Toggle -->
+            <button class="action-icon-btn" id="quick-red-btn" title="Toggle Rubylith Red Mode">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </button>
 
             <!-- Shutter Button -->
             <button class="shutter-btn" id="shutter-btn" title="Take Photo"></button>
@@ -615,6 +619,7 @@
     let currentFilter = 'normal';
     let currentOverlay = 'grid';
     let posterizeLevels = 5;
+    let isRedFilterToggled = false; // Quick toggle independent layer
     let useFrontCamera = false;
     let mediaStream = null;
     let savedPhotos = JSON.parse(localStorage.getItem('atelier_lens_photos') || '[]');
@@ -658,6 +663,7 @@
     const viewerImg = document.getElementById('viewer-img');
     const deletePhotoBtn = document.getElementById('delete-photo-btn');
     const downloadPhotoBtn = document.getElementById('download-photo-btn');
+    const quickRedBtn = document.getElementById('quick-red-btn');
 
     // Initialize Camera
     async function initCamera() {
@@ -705,11 +711,12 @@
             // Draw current video frame to canvas
             ctx.drawImage(video, 0, 0, w, h);
 
-            if (currentFilter !== 'normal') {
+            if (currentFilter !== 'normal' || isRedFilterToggled) {
                 const imageData = ctx.getImageData(0, 0, w, h);
                 const data = imageData.data;
 
-                if (currentFilter === 'rubylith') {
+                // Apply active filter
+                if (currentFilter === 'rubylith' || isRedFilterToggled) {
                     // Rubylith Red Filter (Monochrome red tonal view for painters to evaluate values)
                     for (let i = 0; i < data.length; i += 4) {
                         const r = data[i];
@@ -738,6 +745,7 @@
                     // High-Contrast Grayscale
                     for (let i = 0; i < data.length; i += 4) {
                         let lum = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+                        // High contrast S-curve curve boost
                         lum = lum < 128 ? lum * 0.75 : Math.min(255, lum * 1.25 + 20);
                         data[i] = lum;
                         data[i+1] = lum;
@@ -777,6 +785,7 @@
         overlayCtx.lineWidth = 1;
 
         if (currentOverlay === 'grid') {
+            // Rule of Thirds Grid
             const thirdW = w / 3;
             const thirdH = h / 3;
             overlayCtx.beginPath();
@@ -786,6 +795,7 @@
             overlayCtx.moveTo(0, thirdH * 2); overlayCtx.lineTo(w, thirdH * 2);
             overlayCtx.stroke();
         } else if (currentOverlay === 'golden') {
+            // Golden Ratio (1 : 0.618 grid)
             const g1 = w * 0.382;
             const g2 = w * 0.618;
             const h1 = h * 0.382;
@@ -797,22 +807,41 @@
             overlayCtx.moveTo(0, h2); overlayCtx.lineTo(w, h2);
             overlayCtx.stroke();
         } else if (currentOverlay === 'spiral') {
-            overlayCtx.strokeStyle = 'rgba(212, 175, 55, 0.7)';
+            // Fibonacci / Golden Spiral (approximate classic construction boxes)
+            overlayCtx.strokeStyle = 'rgba(212, 175, 55, 0.6)'; // Gold tint for spiral
             overlayCtx.lineWidth = 1.5;
+            
+            // Draw guiding boxes / arcs
+            let x = 0, y = 0, cw = w, ch = h;
+            // Simplified classical golden spiral quadrant arcs
+            overlayCtx.beginPath();
+            // Outer frame
             overlayCtx.strokeRect(0, 0, w, h);
             
-            // Golden spiral approximate arc path
-            overlayCtx.beginPath();
-            overlayCtx.arc(w * 0.618, h * 0.5, w * 0.382, 0, Math.PI * 1.5);
+            // Let's draw Fibonacci curve segments roughly across the golden rectangles
+            let bx = 0, by = 0, bw = w, bh = h;
+            for (let i = 0; i < 6; i++) {
+                if (bw < 10 || bh < 10) break;
+                if (i % 4 === 0) {
+                    overlayCtx.arc(bx + bw, by + bh, bw, Math.PI, Math.PI * 1.5);
+                    bw *= 0.618;
+                    bx = bx + w - bw; // simplified layout anchor
+                } else if (i % 4 === 1) {
+                    bh *= 0.618;
+                }
+            }
             overlayCtx.stroke();
         } else if (currentOverlay === 'diagonals') {
+            // Diagonal Method (Baroque / Dynamic Symmetry armature)
             overlayCtx.beginPath();
             overlayCtx.moveTo(0, 0); overlayCtx.lineTo(w, h);
             overlayCtx.moveTo(w, 0); overlayCtx.lineTo(0, h);
+            // Perpendiculars to corners
             overlayCtx.moveTo(0, h); overlayCtx.lineTo(w / 2, 0);
             overlayCtx.moveTo(w, h); overlayCtx.lineTo(w / 2, 0);
             overlayCtx.stroke();
         } else if (currentOverlay === 'center') {
+            // Center Crosshair
             const cx = w / 2;
             const cy = h / 2;
             overlayCtx.beginPath();
@@ -847,6 +876,19 @@
         sliderValDisplay.textContent = `${posterizeLevels} Levels`;
     });
 
+    // Quick Red Filter Toggle Button
+    quickRedBtn.addEventListener('click', () => {
+        isRedFilterToggled = !isRedFilterToggled;
+        quickRedBtn.classList.toggle('active', isRedFilterToggled);
+        if (isRedFilterToggled) {
+            quickRedBtn.style.background = 'var(--danger)';
+            quickRedBtn.style.color = '#fff';
+        } else {
+            quickRedBtn.style.background = '';
+            quickRedBtn.style.color = '';
+        }
+    });
+
     // Camera Flip
     cameraFlipBtn.addEventListener('click', () => {
         useFrontCamera = !useFrontCamera;
@@ -870,16 +912,20 @@
 
     // Shutter Photo Capture
     shutterBtn.addEventListener('click', () => {
+        // Flash effect
         flashEffect.classList.add('fire');
         setTimeout(() => flashEffect.classList.remove('fire'), 300);
 
+        // Create composite canvas for capture (video/filter canvas + overlay optionally or clean)
         const captureCanvas = document.createElement('canvas');
         captureCanvas.width = canvasPreview.width;
         captureCanvas.height = canvasPreview.height;
         const capCtx = captureCanvas.getContext('2d');
 
+        // Draw filtered viewfinder image
         capCtx.drawImage(canvasPreview, 0, 0);
 
+        // Save data URL to localStorage
         const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.90);
         savedPhotos.unshift(dataUrl);
         localStorage.setItem('atelier_lens_photos', JSON.stringify(savedPhotos));
