@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reference Simplifier</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #121212;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
+        video {
+            display: none;
+        }
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .controls {
+            width: 100%;
+            background: rgba(30, 30, 30, 0.95);
+            padding: 15px;
+            box-sizing: border-box;
+            border-top: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .quick-modes {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+        .btn-mode {
+            flex: 1;
+            background: #2c2c2e;
+            color: white;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-mode.active {
+            background: #34c759;
+            border-color: #34c759;
+        }
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #aaa;
+        }
+        input[type="range"] {
+            width: 100%;
+            accent-color: #007aff;
+        }
+        .btn-capture {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+        .btn-capture:active {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="controls">
+        <!-- Quick Preset Buttons -->
+        <div class="quick-modes">
+            <button class="btn-mode" id="toggleGrey">Toggle Grayscale</button>
+            <button class="btn-mode" id="btn10Values">10 Values Mode</button>
+        </div>
+
+        <div class="control-group">
+            <label for="pixelSize">Pixelate (Block Size)</label>
+            <input type="range" id="pixelSize" min="1" max="40" value="1">
+        </div>
+        
+        <div class="control-group">
+            <label for="blurAmount">Blur (Smooth Out)</label>
+            <input type="range" id="blurAmount" min="0" max="20" value="0">
+        </div>
+
+        <div class="control-group">
+            <label for="colorSteps">Color Simplification</label>
+            <input type="range" id="colorSteps" min="2" max="255" value="255">
+        </div>
+
+        <button class="btn-capture" id="captureBtn">Save Reference Photo</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        const pixelSlider = document.getElementById('pixelSize');
+        const blurSlider = document.getElementById('blurAmount');
+        const colorSlider = document.getElementById('colorSteps');
+        const captureBtn = document.getElementById('captureBtn');
+        
+        const toggleGreyBtn = document.getElementById('toggleGrey');
+        const btn10Values = document.getElementById('btn10Values');
+
+        let isGrayscale = false;
+        let is10ValuesMode = false;
+
+        // Camera Initialization
+        navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: { exact: "environment" } }, 
+            audio: false 
+        })
+        .catch(() => {
+            return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        })
+        .then(stream => {
+            video.srcObject = stream;
+            video.addEventListener('loadedmetadata', () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                requestAnimationFrame(processFrame);
+            });
+        })
+        .catch(err => {
+            alert("Camera error: " + err.message);
+        });
+
+        // Quick Mode Handlers
+        toggleGreyBtn.addEventListener('click', () => {
+            isGrayscale = !isGrayscale;
+            toggleGreyBtn.classList.toggle('active', isGrayscale);
+            if (!isGrayscale) {
+                is10ValuesMode = false;
+                btn10Values.classList.remove('active');
+            }
+        });
+
+        btn10Values.addEventListener('click', () => {
+            is10ValuesMode = !is10ValuesMode;
+            btn10Values.classList.toggle('active', is10ValuesMode);
+            
+            if (is10ValuesMode) {
+                isGrayscale = true;
+                toggleGreyBtn.classList.add('active');
+                // Force sliders to a clean blocky state optimized for 10 values
+                pixelSlider.value = 8; 
+                blurSlider.value = 2;
+            } else {
+                pixelSlider.value = 1;
+                blurSlider.value = 0;
+            }
+        });
+
+        function processFrame() {
+            if (video.paused || video.ended) return;
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const pixelSize = parseInt(pixelSlider.value);
+            const blur = parseInt(blurSlider.value);
+            let steps = parseInt(colorSlider.value);
+
+            // Override color steps if 10 values button is active
+            if (is10ValuesMode) {
+                steps = 10;
+            }
+
+            ctx.clearRect(0, 0, w, h);
+            
+            // 1. Handle Pixelation
+            if (pixelSize > 1) {
+                const smallW = Math.ceil(w / pixelSize);
+                const smallH = Math.ceil(h / pixelSize);
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(video, 0, 0, smallW, smallH);
+                ctx.drawImage(canvas, 0, 0, smallW, smallH, 0, 0, w, h);
+            } else {
+                ctx.imageSmoothingEnabled = true;
+                ctx.drawImage(video, 0, 0, w, h);
+            }
+
+            // 2. Handle Grayscale and Value Stepping
+            if (isGrayscale || steps < 255) {
+                let imgData = ctx.getImageData(0, 0, w, h);
+                let data = imgData.data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    let r = data[i];
+                    let g = data[i + 1];
+                    let b = data[i + 2];
+
+                    // Convert to Grayscale using standard perceptual weights
+                    if (isGrayscale) {
+                        const v = 0.299 * r + 0.587 * g + 0.114 * b;
+                        r = g = b = v;
+                    }
+
+                    // Constrain down to exact value steps
+                    if (steps < 255) {
+                        const interval = 255 / (steps - 1);
+                        r = Math.round(r / interval) * interval;
+                        g = Math.round(g / interval) * interval;
+                        b = Math.round(b / interval) * interval;
+                    }
+
+                    data[i] = r;
+                    data[i + 1] = g;
+                    data[i + 2] = b;
+                }
+                ctx.putImageData(imgData, 0, 0);
+            }
+
+            // 3. Handle Blur Filter
+            ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
+
+            requestAnimationFrame(processFrame);
+        }
+
+        // Save Function
+        captureBtn.addEventListener('click', () => {
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            const link = document.createElement('a');
+            link.download = `value-reference-${Date.now()}.jpg`;
+            link.href = dataUrl;
+            link.click();
+        });
+    </script>
+</body>
+</html>
