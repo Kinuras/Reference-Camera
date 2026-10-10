@@ -2,971 +2,478 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>iOS Camera Filter Studio for Artists</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root {
-            --bg-color: #0b0b0e;
-            --panel-bg: rgba(22, 22, 28, 0.85);
-            --accent: #d4af37; /* Gold accent */
-            --accent-glow: rgba(212, 175, 55, 0.3);
-            --text-main: #f4f4f6;
-            --text-muted: #9e9ea6;
-            --danger: #ff4d4d;
-            --safe-bottom: env(safe-area-inset-bottom, 20px);
-            --safe-top: env(safe-area-inset-top, 20px);
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            -webkit-user-select: none;
-            user-select: none;
-            -webkit-touch-callout: none;
-        }
-
-        body, html {
-            width: 100%;
-            height: 100%;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow: hidden;
-            position: fixed;
-        }
-
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            height: 100%;
-            position: relative;
-            background: #000;
-        }
-
-        /* Viewfinder Area */
-        .viewfinder {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #camera-video, #canvas-preview {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-
-        #canvas-preview {
-            z-index: 2;
-        }
-
-        /* Top Bar */
-        .top-bar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: calc(50px + var(--safe-top));
-            padding-top: var(--safe-top);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-left: 20px;
-            padding-right: 20px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-            z-index: 10;
-        }
-
-        .top-btn {
-            background: rgba(40, 40, 48, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: var(--text-main);
-            padding: 8px 14px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            backdrop-filter: blur(10px);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .top-btn.active {
-            background: var(--accent);
-            color: #000;
-            border-color: var(--accent);
-            box-shadow: 0 0 12px var(--accent-glow);
-        }
-
-        .app-title {
-            font-size: 14px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            color: var(--text-main);
-            text-transform: uppercase;
-            text-align: center;
-        }
-
-        /* Composition Overlays Canvas */
-        #overlay-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 5;
-        }
-
-        /* Controls Area */
-        .controls-area {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(to top, rgba(11,11,14,0.95) 70%, rgba(11,11,14,0.6) 90%, transparent);
-            padding-bottom: max(var(--safe-bottom), 15px);
-            padding-top: 15px;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            backdrop-filter: blur(15px);
-            border-top: 1px solid rgba(255,255,255,0.08);
-        }
-
-        /* Slider Panel */
-        .slider-panel {
-            padding: 0 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            transition: opacity 0.3s ease;
-        }
-
-        .slider-panel.disabled {
-            opacity: 0.3;
-            pointer-events: none;
-        }
-
-        .slider-header {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .slider-header span:last-child {
-            color: var(--accent);
-            font-weight: 600;
-        }
-
-        input[type="range"] {
-            -webkit-appearance: none;
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: rgba(255, 255, 255, 0.15);
-            outline: none;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: var(--accent);
-            cursor: pointer;
-            box-shadow: 0 0 8px var(--accent-glow);
-        }
-
-        /* Filter Selector Strip */
-        .filter-strip {
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding: 4px 20px;
-            scrollbar-width: none;
-        }
-
-        .filter-strip::-webkit-scrollbar {
-            display: none;
-        }
-
-        .filter-pill {
-            flex: 0 0 auto;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            padding: 6px 14px;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .filter-pill.active {
-            background: var(--text-main);
-            color: #000;
-            border-color: var(--text-main);
-            font-weight: 600;
-        }
-
-        /* Bottom Action Bar */
-        .action-bar {
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            padding: 0 30px;
-        }
-
-        .action-icon-btn {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-main);
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .action-icon-btn:active {
-            transform: scale(0.92);
-        }
-
-        .action-icon-btn.active {
-            background: var(--danger);
-            border-color: var(--danger);
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000;
             color: #fff;
-            box-shadow: 0 0 12px rgba(255, 77, 77, 0.4);
-        }
-
-        .shutter-btn {
-            width: 72px;
-            height: 72px;
-            border-radius: 50%;
-            background: transparent;
-            border: 4px solid var(--text-main);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            position: relative;
-            transition: transform 0.1s ease;
-        }
-
-        .shutter-btn::after {
-            content: '';
-            width: 58px;
-            height: 58px;
-            background: var(--text-main);
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-
-        .shutter-btn:active {
-            transform: scale(0.94);
-        }
-        .shutter-btn:active::after {
-            background: var(--accent);
-        }
-
-        /* Gallery Thumbnail */
-        .gallery-thumb {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
+            user-select: none;
+            -webkit-user-select: none;
             overflow: hidden;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            background: #222;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            touch-action: manipulation;
         }
 
-        .gallery-thumb img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        @keyframes shutterFlash {
+            0% { opacity: 0; }
+            50% { opacity: 1; background-color: #ffffff; }
+            100% { opacity: 0; }
+        }
+        .animate-flash {
+            animation: shutterFlash 0.3s ease-out forwards;
         }
 
-        /* Modals & Overlays */
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.9);
-            z-index: 100;
+        .no-scrollbar::-webkit-scrollbar {
             display: none;
-            flex-direction: column;
-            backdrop-filter: blur(20px);
         }
-
-        .modal.open {
-            display: flex;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: calc(var(--safe-top) + 10px) 20px 15px 20px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .modal-title {
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .close-modal {
-            background: rgba(255,255,255,0.1);
-            border: none;
-            color: var(--text-main);
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Overlay Selector Modal Content */
-        .overlay-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            padding: 25px;
-        }
-
-        .overlay-card {
-            background: rgba(255,255,255,0.05);
-            border: 2px solid rgba(255,255,255,0.1);
-            border-radius: 14px;
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .overlay-card.active {
-            border-color: var(--accent);
-            background: var(--accent-glow);
-        }
-
-        .overlay-card span {
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        /* Gallery Modal Content */
-        .gallery-content {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            align-content: start;
-        }
-
-        .gallery-item {
-            aspect-ratio: 1;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #111;
-            cursor: pointer;
-            position: relative;
-        }
-
-        .gallery-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        /* Photo Viewer Modal */
-        .viewer-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            z-index: 150;
-            display: none;
-            flex-direction: column;
-        }
-
-        .viewer-modal.open {
-            display: flex;
-        }
-
-        .viewer-image-container {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 10px;
-            overflow: hidden;
-        }
-
-        .viewer-image-container img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            border-radius: 4px;
-        }
-
-        .viewer-footer {
-            padding: 20px;
-            padding-bottom: max(var(--safe-bottom), 20px);
-            display: flex;
-            justify-content: space-around;
-            background: rgba(15,15,20,0.9);
-        }
-
-        .viewer-btn {
-            background: rgba(255,255,255,0.1);
-            color: var(--text-main);
-            border: none;
-            padding: 12px 24px;
-            border-radius: 22px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .viewer-btn.danger {
-            background: rgba(255, 77, 77, 0.2);
-            color: var(--danger);
-        }
-
-        /* Flash animation */
-        .flash {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #fff;
-            opacity: 0;
-            z-index: 50;
-            pointer-events: none;
-            transition: opacity 0.3s ease-out;
-        }
-        .flash.fire {
-            opacity: 1;
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
     </style>
 </head>
-<body>
+<body class="h-screen w-screen flex flex-col justify-between bg-black relative">
 
-<div class="app-container">
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <button class="top-btn" id="overlay-toggle-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
-            <span id="active-overlay-name">Grid</span>
-        </button>
-        <div class="app-title">Camera Filter Studio</div>
-        <button class="top-btn" id="camera-flip-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 4v5h-.582m1.582 4a8 8 0 1 1-2.083-6.508l2.583-2.492"/></svg>
-            <span>Flip</span>
-        </button>
-    </div>
+    <div id="viewfinder-container" class="relative flex-1 w-full overflow-hidden bg-black flex items-center justify-center">
+        <!-- Hidden video element for raw camera stream feed -->
+        <video id="camera-stream" autoplay playsinline muted class="hidden"></video>
+        <!-- Real-time processing canvas for filters & posterization -->
+        <canvas id="viewfinder-canvas" class="absolute inset-0 w-full h-full object-cover"></canvas>
+        <canvas id="snapshot-canvas" class="hidden"></canvas>
 
-    <!-- Viewfinder Screen -->
-    <div class="viewfinder" id="viewfinder">
-        <video id="camera-video" autoplay playsinline muted></video>
-        <canvas id="canvas-preview"></canvas>
-        <canvas id="overlay-canvas"></canvas>
-        <div class="flash" id="flash-effect"></div>
-    </div>
+        <!-- Shutter Flash Animation Overlay -->
+        <div id="flash-overlay" class="absolute inset-0 pointer-events-none opacity-0 z-30"></div>
 
-    <!-- Bottom Controls Area -->
-    <div class="controls-area">
-        <!-- Value Slider Panel -->
-        <div class="slider-panel disabled" id="slider-panel">
-            <div class="slider-header">
-                <span>Value Steps (Posterize)</span>
-                <span id="slider-val-display">5 Levels</span>
+        <div id="overlay-container" class="absolute inset-0 pointer-events-none z-20 transition-opacity duration-300">
+            <!-- Rule of Thirds Grid -->
+            <div id="grid-overlay" class="absolute inset-0 hidden grid grid-cols-3 grid-rows-3 p-4 pointer-events-none">
+                <div class="border-r border-b border-white/30"></div>
+                <div class="border-r border-b border-white/30"></div>
+                <div class="border-b border-white/30"></div>
+                <div class="border-r border-b border-white/30"></div>
+                <div class="border-r border-b border-white/30"></div>
+                <div class="border-b border-white/30"></div>
+                <div class="border-r border-white/30"></div>
+                <div class="border-r border-white/30"></div>
+                <div></div>
             </div>
-            <input type="range" id="value-slider" min="2" max="16" value="5" step="1">
+
+            <!-- Golden Ratio Grid -->
+            <div id="golden-overlay" class="absolute inset-0 hidden pointer-events-none">
+                <div class="absolute top-0 bottom-0 left-[38.2%] border-r border-amber-400/50 border-dashed"></div>
+                <div class="absolute top-0 bottom-0 left-[61.8%] border-r border-amber-400/50 border-dashed"></div>
+                <div class="absolute left-0 right-0 top-[38.2%] border-b border-amber-400/50 border-dashed"></div>
+                <div class="absolute left-0 right-0 top-[61.8%] border-b border-amber-400/50 border-dashed"></div>
+            </div>
+
+            <!-- Diagonal Composition Guide -->
+            <div id="diagonal-overlay" class="absolute inset-0 hidden pointer-events-none overflow-hidden">
+                <div class="absolute inset-0 border border-white/20"></div>
+                <svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                    <line x1="0" y1="0" x2="100" y2="100" stroke="rgba(255,255,255,0.3)" stroke-dasharray="2,2" stroke-width="0.5"/>
+                    <line x1="100" y1="0" x2="0" y2="100" stroke="rgba(255,255,255,0.3)" stroke-dasharray="2,2" stroke-width="0.5"/>
+                </svg>
+            </div>
+
+            <!-- Center Crosshair -->
+            <div id="center-overlay" class="absolute inset-0 hidden flex items-center justify-center pointer-events-none">
+                <div class="relative w-6 h-6 flex items-center justify-center">
+                    <div class="absolute w-6 h-[1px] bg-white/70"></div>
+                    <div class="absolute h-6 w-[1px] bg-white/70"></div>
+                    <div class="w-2 h-2 rounded-full border border-white/70"></div>
+                </div>
+            </div>
         </div>
 
-        <!-- Filter Selection Strip -->
-        <div class="filter-strip" id="filter-strip">
-            <div class="filter-pill active" data-filter="normal">Normal</div>
-            <div class="filter-pill" data-filter="posterize">Value Posterize</div>
-            <div class="filter-pill" data-filter="grayscale">High-Contrast BW</div>
-            <div class="filter-pill" data-filter="warm">Warm Studio</div>
-            <div class="filter-pill" data-filter="cool">Cool Studio</div>
-        </div>
-
-        <!-- Action Bar -->
-        <div class="action-bar">
-            <!-- Rubylith Red Filter Toggle Button -->
-            <button class="action-icon-btn" id="quick-red-btn" title="Toggle Rubylith Red Filter">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <div class="absolute top-0 inset-x-0 p-4 flex justify-between items-center z-40 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+            <!-- Flash Toggle -->
+            <button id="btn-flash" class="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white text-lg active:scale-95 transition">
+                <i class="fa-solid fa-bolt-lightning text-amber-400"></i>
             </button>
 
-            <!-- Shutter Button -->
-            <button class="shutter-btn" id="shutter-btn" title="Take Photo"></button>
+            <!-- Rubylith Red Filter Toggle Button -->
+            <button id="btn-red-filter" class="px-3.5 py-1.5 rounded-full bg-neutral-900/60 border border-red-500/40 backdrop-blur-md text-xs font-semibold flex items-center gap-1.5 text-red-400 active:scale-95 transition shadow-lg">
+                <i class="fa-solid fa-eye-dropper"></i> <span id="red-filter-label">Red Filter: Off</span>
+            </button>
 
-            <!-- Gallery Thumbnail Button -->
-            <div class="gallery-thumb" id="gallery-btn" title="Captured Gallery">
-                <img id="gallery-thumb-img" src="" alt="" style="display:none;">
-                <svg id="gallery-placeholder-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <!-- Viewfinder Mode Switcher Dropdown -->
+            <div class="relative">
+                <button id="btn-overlay-menu" class="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md text-xs font-medium flex items-center gap-1.5 text-white active:scale-95 transition">
+                    <i class="fa-solid fa-table-cells text-white/80"></i> <span id="active-overlay-label">Off</span>
+                </button>
+                <div id="overlay-dropdown" class="absolute right-0 mt-2 w-40 bg-neutral-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl py-1.5 hidden z-50">
+                    <button onclick="setOverlay('none')" class="w-full text-left px-4 py-2 text-xs hover:bg-white/10 text-neutral-300 flex items-center justify-between">Off <i class="fa-solid fa-check text-amber-400 op-check" data-mode="none"></i></button>
+                    <button onclick="setOverlay('grid')" class="w-full text-left px-4 py-2 text-xs hover:bg-white/10 text-neutral-300 flex items-center justify-between">Rule of Thirds <i class="fa-solid fa-check text-amber-400 op-check hidden" data-mode="grid"></i></button>
+                    <button onclick="setOverlay('golden')" class="w-full text-left px-4 py-2 text-xs hover:bg-white/10 text-neutral-300 flex items-center justify-between">Golden Ratio <i class="fa-solid fa-check text-amber-400 op-check hidden" data-mode="golden"></i></button>
+                    <button onclick="setOverlay('diagonal')" class="w-full text-left px-4 py-2 text-xs hover:bg-white/10 text-neutral-300 flex items-center justify-between">Diagonals <i class="fa-solid fa-check text-amber-400 op-check hidden" data-mode="diagonal"></i></button>
+                    <button onclick="setOverlay('center')" class="w-full text-left px-4 py-2 text-xs hover:bg-white/10 text-neutral-300 flex items-center justify-between">Crosshair <i class="fa-solid fa-check text-amber-400 op-check hidden" data-mode="center"></i></button>
+                </div>
             </div>
+
+            <!-- Camera Switcher -->
+            <button id="btn-switch-camera" class="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white text-lg active:scale-95 transition">
+                <i class="fa-solid fa-camera-rotate"></i>
+            </button>
+        </div>
+
+        <!-- Floating Mode Badge -->
+        <div class="absolute bottom-4 inset-x-0 flex justify-center z-40 pointer-events-none">
+            <span id="filter-badge" class="px-3.5 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[11px] font-semibold tracking-wide text-white uppercase shadow-lg transition-all duration-300">Natural Studio</span>
         </div>
     </div>
-</div>
 
-<!-- Overlay Selection Modal -->
-<div class="modal" id="overlay-modal">
-    <div class="modal-header">
-        <div class="modal-title">Composition Overlays</div>
-        <button class="close-modal" id="close-overlay-modal">&times;</button>
-    </div>
-    <div class="overlay-grid">
-        <div class="overlay-card active" data-overlay="grid">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
-            <span>Grid / Rule of Thirds</span>
+    <div class="w-full bg-neutral-950/95 backdrop-blur-2xl flex flex-col pt-3 pb-6 px-4 z-40 border-t border-white/10">
+        <!-- Tonal Value Quantization Slider Bar -->
+        <div class="max-w-md mx-auto w-full px-3 mb-3 bg-neutral-900/90 border border-white/10 rounded-2xl py-2.5 flex flex-col gap-2 shadow-inner">
+            <div class="flex items-center justify-between text-xs font-semibold text-neutral-300">
+                <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-sliders text-amber-400"></i> Tonal Values (Posterization): <span id="color-levels-val" class="text-amber-400 font-bold">10</span>
+                </div>
+                <button id="btn-reset-levels" class="text-[10px] text-neutral-400 hover:text-white underline">Reset (10)</button>
+            </div>
+            <input id="color-levels-slider" type="range" min="2" max="16" step="1" value="10" class="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-amber-400">
         </div>
-        <div class="overlay-card" data-overlay="golden">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12.2h18M12.2 3v18"/></svg>
-            <span>Golden Ratio</span>
-        </div>
-        <div class="overlay-card" data-overlay="spiral">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 12m-9 0a9 9 0 1 0 18 0 9 9 0 1 0-18 0"/><path d="M12 12m-5 0a5 5 0 1 0 10 0 5 5 0 1 0-10 0"/></svg>
-            <span>Golden Spiral</span>
-        </div>
-        <div class="overlay-card" data-overlay="diagonals">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 3l18 18M21 3L3 21"/></svg>
-            <span>Diagonal Method</span>
-        </div>
-        <div class="overlay-card" data-overlay="center">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg>
-            <span>Center Crosshair</span>
-        </div>
-        <div class="overlay-card" data-overlay="none">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-            <span>None</span>
+
+        <!-- Artist Filter Tray -->
+        <div id="filter-tray" class="flex items-center gap-3 overflow-x-auto no-scrollbar py-1 px-1 mb-3"></div>
+
+        <!-- Shutter & Gallery Controls Row -->
+        <div class="flex items-center justify-between px-6 max-w-md mx-auto w-full">
+            <button id="btn-gallery" class="w-12 h-12 rounded-2xl bg-neutral-800 border border-neutral-700 overflow-hidden relative active:scale-95 transition shadow-md flex items-center justify-center">
+                <img id="gallery-thumb" src="https://placehold.co/100x100/222/666?text=📷" alt="Gallery" class="w-full h-full object-cover">
+                <div id="gallery-badge" class="absolute top-1 right-1 w-4 h-4 bg-amber-500 rounded-full text-[9px] font-bold text-black flex items-center justify-center hidden">1</div>
+            </button>
+
+            <button id="btn-shutter" class="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center p-1 active:scale-95 transition shadow-2xl">
+                <div class="w-full h-full bg-white rounded-full active:bg-neutral-200 transition"></div>
+            </button>
+
+            <button id="btn-info" class="w-12 h-12 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white/80 text-lg active:scale-95 transition">
+                <i class="fa-solid fa-circle-info"></i>
+            </button>
         </div>
     </div>
-</div>
 
-<!-- Gallery Modal -->
-<div class="modal" id="gallery-modal">
-    <div class="modal-header">
-        <div class="modal-title">Saved Studies (<span id="gallery-count">0</span>)</div>
-        <button class="close-modal" id="close-gallery-modal">&times;</button>
+    <div id="photo-modal" class="fixed inset-0 bg-black/95 backdrop-blur-3xl z-50 flex flex-col justify-between p-6 hidden">
+        <div class="flex justify-between items-center w-full">
+            <button id="modal-close" class="text-white text-sm px-4 py-2 rounded-full bg-white/10 font-medium active:scale-95 transition">Done</button>
+            <span class="text-xs font-semibold text-neutral-400 tracking-widest uppercase">Artist Reference Capture</span>
+            <button id="modal-share" class="text-white text-sm px-3.5 py-2 rounded-full bg-white/10 font-medium active:scale-95 transition"><i class="fa-solid fa-share-nodes"></i></button>
+        </div>
+        <div class="flex-1 flex items-center justify-center py-4">
+            <img id="modal-image" src="" alt="Captured Photo" class="max-h-full max-w-full rounded-2xl shadow-2xl object-contain border border-white/10">
+        </div>
+        <div class="flex justify-around items-center w-full pt-2">
+            <a id="btn-download" download="artist-reference.jpg" class="flex-1 max-w-xs py-3.5 bg-white text-black font-semibold rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
+                <i class="fa-solid fa-download"></i> Save to Photos
+            </a>
+            <button id="btn-delete" class="w-12 h-12 ml-4 bg-red-500/20 text-red-400 rounded-2xl flex items-center justify-center active:scale-95 transition">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        </div>
     </div>
-    <div class="gallery-content" id="gallery-grid">
-        <!-- Captured photos appear here -->
+
+    <div id="info-modal" class="fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center p-6 hidden">
+        <div class="bg-neutral-900 border border-white/10 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl">
+            <div class="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-2xl mx-auto flex items-center justify-center text-xl mb-4">
+                <i class="fa-solid fa-palette"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2">Artist Camera Studio</h3>
+            <p class="text-xs text-neutral-400 leading-relaxed mb-6">
+                Designed for painters to block in tonal masses. Use the <strong>Tonal Values slider</strong> to reduce complex scenes down to 2–16 values. Toggle the <strong>Red Filter</strong> to instantly check values like a traditional ruby filter value finder.
+            </p>
+            <button id="info-close" class="w-full py-3 bg-white text-black font-semibold rounded-xl active:scale-95 transition text-sm">Got it</button>
+        </div>
     </div>
-</div>
 
-<!-- Photo Detail Viewer Modal -->
-<div class="viewer-modal" id="viewer-modal">
-    <div class="modal-header" style="background: rgba(15,15,20,0.9);">
-        <div class="modal-title">Study Preview</div>
-        <button class="close-modal" id="close-viewer-modal">&times;</button>
-    </div>
-    <div class="viewer-image-container">
-        <img id="viewer-img" src="" alt="Captured Photo">
-    </div>
-    <div class="viewer-footer">
-        <button class="viewer-btn danger" id="delete-photo-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-            Delete
-        </button>
-        <button class="viewer-btn" id="download-photo-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Save to Device
-        </button>
-    </div>
-</div>
+    <script>
+        // Painter-focused filter presets
+        const FILTERS = [
+            { id: 'natural', name: 'Natural', previewBg: '#666' },
+            { id: 'monochrome', name: 'Grayscale', previewBg: '#444' },
+            { id: 'highcontrast', name: 'High Contrast', previewBg: '#111' },
+            { id: 'warmstudio', name: 'Warm Studio', previewBg: '#d97706' },
+            { id: 'coolnorth', name: 'Cool North', previewBg: '#0891b2' },
+            { id: 'sepia', name: 'Sepia Tone', previewBg: '#b45309' },
+            { id: 'poster', name: 'Flat Poster', previewBg: '#ec4899' },
+            { id: 'muted', name: 'Muted Tones', previewBg: '#78716c' }
+        ];
 
-<script>
-    // App State
-    let currentFilter = 'normal';
-    let currentOverlay = 'grid';
-    let posterizeLevels = 5;
-    let isRedFilterToggled = false;
-    let useFrontCamera = false;
-    let mediaStream = null;
-    let savedPhotos = JSON.parse(localStorage.getItem('atelier_lens_photos') || '[]');
-    let viewingPhotoIndex = null;
+        let currentFilter = FILTERS[0];
+        let currentFacingMode = 'environment'; // Default to rear camera for painting reference
+        let currentFlashEnabled = false;
+        let redFilterActive = false;
+        let colorLevels = 10; // Default Munsell-style 10 value scale
+        let mediaStream = null;
+        let lastCapturedPhoto = null;
+        let capturedCount = 0;
 
-    // DOM Elements
-    const video = document.getElementById('camera-video');
-    const canvasPreview = document.getElementById('canvas-preview');
-    const ctx = canvasPreview.getContext('2d', { willReadFrequently: true });
-    const overlayCanvas = document.getElementById('overlay-canvas');
-    const overlayCtx = overlayCanvas.getContext('2d');
-    const viewfinder = document.getElementById('viewfinder');
-    
-    const filterStrip = document.getElementById('filter-strip');
-    const sliderPanel = document.getElementById('slider-panel');
-    const valueSlider = document.getElementById('value-slider');
-    const sliderValDisplay = document.getElementById('slider-val-display');
-    const shutterBtn = document.getElementById('shutter-btn');
-    const cameraFlipBtn = document.getElementById('camera-flip-btn');
-    const flashEffect = document.getElementById('flash-effect');
-    const quickRedBtn = document.getElementById('quick-red-btn');
-    
-    // Overlays
-    const overlayToggleBtn = document.getElementById('overlay-toggle-btn');
-    const activeOverlayName = document.getElementById('active-overlay-name');
-    const overlayModal = document.getElementById('overlay-modal');
-    const closeOverlayModal = document.getElementById('close-overlay-modal');
-    const overlayCards = document.querySelectorAll('.overlay-card');
+        const videoElem = document.getElementById('camera-stream');
+        const canvasElem = document.getElementById('viewfinder-canvas');
+        const ctx = canvasElem.getContext('2d', { willReadFrequently: true });
+        const flashOverlay = document.getElementById('flash-overlay');
+        const filterBadge = document.getElementById('filter-badge');
+        const filterTray = document.getElementById('filter-tray');
+        const colorLevelsSlider = document.getElementById('color-levels-slider');
+        const colorLevelsVal = document.getElementById('color-levels-val');
 
-    // Gallery
-    const galleryBtn = document.getElementById('gallery-btn');
-    const galleryModal = document.getElementById('gallery-modal');
-    const closeGalleryModal = document.getElementById('close-gallery-modal');
-    const galleryGrid = document.getElementById('gallery-grid');
-    const galleryThumbImg = document.getElementById('gallery-thumb-img');
-    const galleryPlaceholderIcon = document.getElementById('gallery-placeholder-icon');
-    const galleryCount = document.getElementById('gallery-count');
-
-    // Viewer
-    const viewerModal = document.getElementById('viewer-modal');
-    const closeViewerModal = document.getElementById('close-viewer-modal');
-    const viewerImg = document.getElementById('viewer-img');
-    const deletePhotoBtn = document.getElementById('delete-photo-btn');
-    const downloadPhotoBtn = document.getElementById('download-photo-btn');
-
-    // Initialize Camera
-    async function initCamera() {
-        if (mediaStream) {
-            mediaStream.getTracks().forEach(track => track.stop());
-        }
-        try {
-            const constraints = {
-                video: {
-                    facingMode: useFrontCamera ? 'user' : 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                },
-                audio: false
-            };
-            mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-            video.srcObject = mediaStream;
-            await video.play();
-            resizeCanvas();
-            requestAnimationFrame(renderLoop);
-        } catch (err) {
-            console.error("Camera access error:", err);
-            alert("Camera access denied or unavailable. Please check device permissions.");
-        }
-    }
-
-    function resizeCanvas() {
-        const width = viewfinder.clientWidth;
-        const height = viewfinder.clientHeight;
-        canvasPreview.width = width;
-        canvasPreview.height = height;
-        overlayCanvas.width = width;
-        overlayCanvas.height = height;
-        drawOverlay();
-    }
-
-    window.addEventListener('resize', resizeCanvas);
-
-    // Filter Logic & Pixel Processing Loop
-    function renderLoop() {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            const w = canvasPreview.width;
-            const h = canvasPreview.height;
-
-            // Draw current video frame to canvas
-            ctx.drawImage(video, 0, 0, w, h);
-
-            if (currentFilter !== 'normal' || isRedFilterToggled) {
-                const imageData = ctx.getImageData(0, 0, w, h);
-                const data = imageData.data;
-
-                if (isRedFilterToggled) {
-                    // Rubylith Red Filter Toggle
-                    for (let i = 0; i < data.length; i += 4) {
-                        const r = data[i];
-                        const g = data[i+1];
-                        const b = data[i+2];
-                        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-                        data[i] = Math.min(255, lum * 1.5);
-                        data[i+1] = lum * 0.2;
-                        data[i+2] = lum * 0.2;
-                    }
-                } else if (currentFilter === 'posterize') {
-                    // Value Posterization (Reduces continuous tones into N discrete steps)
-                    const steps = posterizeLevels;
-                    const stepSize = 255 / (steps - 1);
-                    for (let i = 0; i < data.length; i += 4) {
-                        const r = data[i];
-                        const g = data[i+1];
-                        const b = data[i+2];
-                        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-                        const quantized = Math.round(lum / stepSize) * stepSize;
-                        data[i] = quantized;
-                        data[i+1] = quantized;
-                        data[i+2] = quantized;
-                    }
-                } else if (currentFilter === 'grayscale') {
-                    // High-Contrast Grayscale
-                    for (let i = 0; i < data.length; i += 4) {
-                        let lum = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
-                        lum = lum < 128 ? lum * 0.75 : Math.min(255, lum * 1.25 + 20);
-                        data[i] = lum;
-                        data[i+1] = lum;
-                        data[i+2] = lum;
-                    }
-                } else if (currentFilter === 'warm') {
-                    // Warm Studio Light simulation
-                    for (let i = 0; i < data.length; i += 4) {
-                        data[i] = Math.min(255, data[i] * 1.15);     // Boost Red
-                        data[i+1] = Math.min(255, data[i+1] * 1.05); // Boost Green slightly
-                        data[i+2] = Math.max(0, data[i+2] * 0.85);   // Reduce Blue
-                    }
-                } else if (currentFilter === 'cool') {
-                    // Cool Studio Light simulation
-                    for (let i = 0; i < data.length; i += 4) {
-                        data[i] = Math.max(0, data[i] * 0.85);       // Reduce Red
-                        data[i+1] = Math.min(255, data[i+1] * 1.02); 
-                        data[i+2] = Math.min(255, data[i+2] * 1.2);    // Boost Blue
-                    }
+        async function initCamera() {
+            try {
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
                 }
-
-                ctx.putImageData(imageData, 0, 0);
+                const constraints = {
+                    video: {
+                        facingMode: currentFacingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+                mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElem.srcObject = mediaStream;
+                videoElem.play();
+                requestAnimationFrame(processVideoFrame);
+            } catch (err) {
+                console.warn('Camera access warning / simulation mode:', err);
             }
         }
-        requestAnimationFrame(renderLoop);
-    }
 
-    // Composition Overlays Drawer
-    function drawOverlay() {
-        const w = overlayCanvas.width;
-        const h = overlayCanvas.height;
-        overlayCtx.clearRect(0, 0, w, h);
+        // Real-time canvas filter & artist quantization processing loop
+        function processVideoFrame() {
+            if (videoElem.readyState === videoElem.HAVE_ENOUGH_DATA) {
+                if (canvasElem.width !== videoElem.videoWidth || canvasElem.height !== videoElem.videoHeight) {
+                    canvasElem.width = videoElem.videoWidth || 640;
+                    canvasElem.height = videoElem.videoHeight || 480;
+                }
 
-        if (currentOverlay === 'none') return;
+                ctx.save();
+                if (currentFacingMode === 'user') {
+                    ctx.translate(canvasElem.width, 0);
+                    ctx.scale(-1, 1);
+                }
+                ctx.drawImage(videoElem, 0, 0, canvasElem.width, canvasElem.height);
+                ctx.restore();
 
-        overlayCtx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-        overlayCtx.lineWidth = 1;
+                const imgData = ctx.getImageData(0, 0, canvasElem.width, canvasElem.height);
+                const data = imgData.data;
+                const levelsFactor = colorLevels / 255.0;
+                const invLevelsFactor = 255.0 / (colorLevels - 1 > 0 ? colorLevels - 1 : 1);
 
-        if (currentOverlay === 'grid') {
-            const thirdW = w / 3;
-            const thirdH = h / 3;
-            overlayCtx.beginPath();
-            overlayCtx.moveTo(thirdW, 0); overlayCtx.lineTo(thirdW, h);
-            overlayCtx.moveTo(thirdW * 2, 0); overlayCtx.lineTo(thirdW * 2, h);
-            overlayCtx.moveTo(0, thirdH); overlayCtx.lineTo(w, thirdH);
-            overlayCtx.moveTo(0, thirdH * 2); overlayCtx.lineTo(w, thirdH * 2);
-            overlayCtx.stroke();
-        } else if (currentOverlay === 'golden') {
-            const g1 = w * 0.382;
-            const g2 = w * 0.618;
-            const h1 = h * 0.382;
-            const h2 = h * 0.618;
-            overlayCtx.beginPath();
-            overlayCtx.moveTo(g1, 0); overlayCtx.lineTo(g1, h);
-            overlayCtx.moveTo(g2, 0); overlayCtx.lineTo(g2, h);
-            overlayCtx.moveTo(0, h1); overlayCtx.lineTo(w, h1);
-            overlayCtx.moveTo(0, h2); overlayCtx.lineTo(w, h2);
-            overlayCtx.stroke();
-        } else if (currentOverlay === 'spiral') {
-            overlayCtx.strokeStyle = 'rgba(212, 175, 55, 0.7)';
-            overlayCtx.lineWidth = 1.5;
-            overlayCtx.strokeRect(0, 0, w, h);
-            
-            overlayCtx.beginPath();
-            overlayCtx.arc(w * 0.618, h * 0.5, w * 0.382, 0, Math.PI * 1.5);
-            overlayCtx.stroke();
-        } else if (currentOverlay === 'diagonals') {
-            overlayCtx.beginPath();
-            overlayCtx.moveTo(0, 0); overlayCtx.lineTo(w, h);
-            overlayCtx.moveTo(w, 0); overlayCtx.lineTo(0, h);
-            overlayCtx.moveTo(0, h); overlayCtx.lineTo(w / 2, 0);
-            overlayCtx.moveTo(w, h); overlayCtx.lineTo(w / 2, 0);
-            overlayCtx.stroke();
-        } else if (currentOverlay === 'center') {
-            const cx = w / 2;
-            const cy = h / 2;
-            overlayCtx.beginPath();
-            overlayCtx.arc(cx, cy, 25, 0, Math.PI * 2);
-            overlayCtx.moveTo(cx - 35, cy); overlayCtx.lineTo(cx - 10, cy);
-            overlayCtx.moveTo(cx + 10, cy); overlayCtx.lineTo(cx + 35, cy);
-            overlayCtx.moveTo(cx, cy - 35); overlayCtx.lineTo(cx, cy - 10);
-            overlayCtx.moveTo(cx, cy + 10); overlayCtx.lineTo(cx, cy + 35);
-            overlayCtx.stroke();
+                for (let i = 0; i < data.length; i += 4) {
+                    let r = data[i];
+                    let g = data[i+1];
+                    let b = data[i+2];
+
+                    // Artist filter color adjustments
+                    if (currentFilter.id === 'monochrome') {
+                        let avg = 0.299 * r + 0.587 * g + 0.114 * b;
+                        r = g = b = avg;
+                    } else if (currentFilter.id === 'highcontrast') {
+                        let avg = 0.299 * r + 0.587 * g + 0.114 * b;
+                        r = g = b = avg < 110 ? avg * 0.4 : Math.min(255, avg * 1.3);
+                    } else if (currentFilter.id === 'warmstudio') {
+                        r = Math.min(255, r * 1.25);
+                        g = Math.min(255, g * 1.05);
+                        b = Math.max(0, b * 0.8);
+                    } else if (currentFilter.id === 'coolnorth') {
+                        b = Math.min(255, b * 1.3);
+                        r = Math.max(0, r * 0.85);
+                    } else if (currentFilter.id === 'sepia') {
+                        let tr = 0.393 * r + 0.769 * g + 0.189 * b;
+                        let tg = 0.349 * r + 0.686 * g + 0.168 * b;
+                        let tb = 0.272 * r + 0.534 * g + 0.131 * b;
+                        r = tr; g = tg; b = tb;
+                    } else if (currentFilter.id === 'poster') {
+                        r = Math.min(255, r * 1.2);
+                        g = Math.min(255, g * 1.1);
+                        b = Math.min(255, b * 1.1);
+                    } else if (currentFilter.id === 'muted') {
+                        let avg = 0.299 * r + 0.587 * g + 0.114 * b;
+                        r = r * 0.6 + avg * 0.4;
+                        g = g * 0.6 + avg * 0.4;
+                        b = b * 0.6 + avg * 0.4;
+                    }
+
+                    // Traditional Rubylith Red Filter mode for evaluating tonal values
+                    if (redFilterActive) {
+                        let lum = 0.299 * r + 0.587 * g + 0.114 * b;
+                        r = Math.min(255, lum * 1.9);
+                        g = lum * 0.15;
+                        b = lum * 0.15;
+                    }
+
+                    // Color quantization / posterization down to user-specified values
+                    r = Math.round(Math.round(r * levelsFactor) * invLevelsFactor);
+                    g = Math.round(Math.round(g * levelsFactor) * invLevelsFactor);
+                    b = Math.round(Math.round(b * levelsFactor) * invLevelsFactor);
+
+                    data[i] = r;
+                    data[i+1] = g;
+                    data[i+2] = b;
+                }
+
+                ctx.putImageData(imgData, 0, 0);
+            }
+            requestAnimationFrame(processVideoFrame);
         }
-    }
 
-    // Event Listeners: Filter Selection
-    filterStrip.addEventListener('click', (e) => {
-        const pill = e.target.closest('.filter-pill');
-        if (!pill) return;
+        function renderFilterTray() {
+            filterTray.innerHTML = '';
+            FILTERS.forEach(f => {
+                const btn = document.createElement('button');
+                btn.className = `flex flex-col items-center gap-1.5 flex-shrink-0 focus:outline-none transition-transform active:scale-95 ${f.id === currentFilter.id ? 'scale-105' : 'opacity-75'}`;
+                btn.innerHTML = `
+                    <div class="w-14 h-14 rounded-2xl border-2 ${f.id === currentFilter.id ? 'border-amber-400 shadow-lg shadow-amber-400/20' : 'border-white/20'} overflow-hidden relative flex items-center justify-center bg-neutral-800">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-full h-full" style="background: ${f.previewBg}; opacity: 0.85;"></div>
+                        </div>
+                        <span class="absolute text-[10px] font-bold text-white drop-shadow">${f.name.substring(0,3)}</span>
+                    </div>
+                    <span class="text-[10px] font-medium tracking-tight ${f.id === currentFilter.id ? 'text-amber-400 font-semibold' : 'text-neutral-300'}">${f.name}</span>
+                `;
+                btn.onclick = () => selectFilter(f);
+                filterTray.appendChild(btn);
+            });
+        }
+
+        function selectFilter(filter) {
+            currentFilter = filter;
+            filterBadge.innerText = redFilterActive ? 'Red Filter Active' : filter.name;
+            renderFilterTray();
+        }
+
+        const btnRedFilter = document.getElementById('btn-red-filter');
+        const redFilterLabel = document.getElementById('red-filter-label');
+        btnRedFilter.onclick = () => {
+            redFilterActive = !redFilterActive;
+            if (redFilterActive) {
+                btnRedFilter.className = 'px-3.5 py-1.5 rounded-full bg-red-600/30 border border-red-500 backdrop-blur-md text-xs font-semibold flex items-center gap-1.5 text-red-300 active:scale-95 transition shadow-lg shadow-red-900/40';
+                redFilterLabel.innerText = 'Red Filter: On';
+                filterBadge.innerText = 'Red Filter (Values)';
+            } else {
+                btnRedFilter.className = 'px-3.5 py-1.5 rounded-full bg-neutral-900/60 border border-red-500/40 backdrop-blur-md text-xs font-semibold flex items-center gap-1.5 text-red-400 active:scale-95 transition shadow-lg';
+                redFilterLabel.innerText = 'Red Filter: Off';
+                filterBadge.innerText = currentFilter.name;
+            }
+        };
+
+        colorLevelsSlider.oninput = (e) => {
+            colorLevels = parseInt(e.target.value);
+            colorLevelsVal.innerText = colorLevels;
+        };
+
+        document.getElementById('btn-reset-levels').onclick = () => {
+            colorLevels = 10;
+            colorLevelsSlider.value = 10;
+            colorLevelsVal.innerText = 10;
+        };
+
+        const overlayDropdown = document.getElementById('overlay-dropdown');
+        const activeOverlayLabel = document.getElementById('active-overlay-label');
         
-        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        currentFilter = pill.getAttribute('data-filter');
+        document.getElementById('btn-overlay-menu').onclick = (e) => {
+            e.stopPropagation();
+            overlayDropdown.classList.toggle('hidden');
+        };
 
-        if (currentFilter === 'posterize') {
-            sliderPanel.classList.remove('disabled');
-        } else {
-            sliderPanel.classList.add('disabled');
+        window.onclick = () => {
+            overlayDropdown.classList.add('hidden');
+        };
+
+        function setOverlay(mode) {
+            document.getElementById('grid-overlay').classList.add('hidden');
+            document.getElementById('golden-overlay').classList.add('hidden');
+            document.getElementById('diagonal-overlay').classList.add('hidden');
+            document.getElementById('center-overlay').classList.add('hidden');
+            document.querySelectorAll('.op-check').forEach(el => el.classList.add('hidden'));
+
+            if (mode === 'grid') {
+                document.getElementById('grid-overlay').classList.remove('hidden');
+                activeOverlayLabel.innerText = 'Thirds';
+                document.querySelector('[data-mode="grid"]').classList.remove('hidden');
+            } else if (mode === 'golden') {
+                document.getElementById('golden-overlay').classList.remove('hidden');
+                activeOverlayLabel.innerText = 'Golden';
+                document.querySelector('[data-mode="golden"]').classList.remove('hidden');
+            } else if (mode === 'diagonal') {
+                document.getElementById('diagonal-overlay').classList.remove('hidden');
+                activeOverlayLabel.innerText = 'Diagonal';
+                document.querySelector('[data-mode="diagonal"]').classList.remove('hidden');
+            } else if (mode === 'center') {
+                document.getElementById('center-overlay').classList.remove('hidden');
+                activeOverlayLabel.innerText = 'Center';
+                document.querySelector('[data-mode="center"]').classList.remove('hidden');
+            } else {
+                activeOverlayLabel.innerText = 'Off';
+                document.querySelector('[data-mode="none"]').classList.remove('hidden');
+            }
+            overlayDropdown.classList.add('hidden');
         }
-    });
 
-    // Slider Event
-    valueSlider.addEventListener('input', (e) => {
-        posterizeLevels = parseInt(e.target.value);
-        sliderValDisplay.textContent = `${posterizeLevels} Levels`;
-    });
+        document.getElementById('btn-switch-camera').onclick = () => {
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            initCamera();
+        };
 
-    // Quick Red Filter Toggle Button
-    quickRedBtn.addEventListener('click', () => {
-        isRedFilterToggled = !isRedFilterToggled;
-        quickRedBtn.classList.toggle('active', isRedFilterToggled);
-    });
+        document.getElementById('btn-flash').onclick = () => {
+            currentFlashEnabled = !currentFlashEnabled;
+            const btn = document.getElementById('btn-flash');
+            btn.innerHTML = currentFlashEnabled 
+                ? '<i class="fa-solid fa-bolt text-amber-400"></i>' 
+                : '<i class="fa-solid fa-bolt-lightning text-white/60"></i>';
+        };
 
-    // Camera Flip
-    cameraFlipBtn.addEventListener('click', () => {
-        useFrontCamera = !useFrontCamera;
-        initCamera();
-    });
+        document.getElementById('btn-shutter').onclick = () => {
+            flashOverlay.classList.remove('animate-flash');
+            void flashOverlay.offsetWidth;
+            flashOverlay.classList.add('animate-flash');
 
-    // Overlay Modal Management
-    overlayToggleBtn.addEventListener('click', () => overlayModal.classList.add('open'));
-    closeOverlayModal.addEventListener('click', () => overlayModal.classList.remove('open'));
+            const dataUrl = canvasElem.toDataURL('image/jpeg', 0.95);
+            lastCapturedPhoto = dataUrl;
+            capturedCount++;
 
-    overlayCards.forEach(card => {
-        card.addEventListener('click', () => {
-            overlayCards.forEach(c => c.classList.remove('active'));
-            card.classList.add('active');
-            currentOverlay = card.getAttribute('data-overlay');
-            activeOverlayName.textContent = card.querySelector('span').textContent.split('/')[0].trim();
-            drawOverlay();
-            overlayModal.classList.remove('open');
-        });
-    });
+            const thumb = document.getElementById('gallery-thumb');
+            thumb.src = dataUrl;
+            const badge = document.getElementById('gallery-badge');
+            badge.innerText = capturedCount;
+            badge.classList.remove('hidden');
 
-    // Shutter Photo Capture
-    shutterBtn.addEventListener('click', () => {
-        flashEffect.classList.add('fire');
-        setTimeout(() => flashEffect.classList.remove('fire'), 300);
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        };
 
-        const captureCanvas = document.createElement('canvas');
-        captureCanvas.width = canvasPreview.width;
-        captureCanvas.height = canvasPreview.height;
-        const capCtx = captureCanvas.getContext('2d');
+        const photoModal = document.getElementById('photo-modal');
+        document.getElementById('btn-gallery').onclick = () => {
+            if (!lastCapturedPhoto) return;
+            document.getElementById('modal-image').src = lastCapturedPhoto;
+            document.getElementById('btn-download').href = lastCapturedPhoto;
+            photoModal.classList.remove('hidden');
+        };
 
-        capCtx.drawImage(canvasPreview, 0, 0);
+        document.getElementById('modal-close').onclick = () => photoModal.classList.add('hidden');
+        document.getElementById('btn-delete').onclick = () => {
+            lastCapturedPhoto = null;
+            capturedCount = 0;
+            document.getElementById('gallery-thumb').src = 'https://placehold.co/100x100/222/666?text=📷';
+            document.getElementById('gallery-badge').classList.add('hidden');
+            photoModal.classList.add('hidden');
+        };
 
-        const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.90);
-        savedPhotos.unshift(dataUrl);
-        localStorage.setItem('atelier_lens_photos', JSON.stringify(savedPhotos));
+        const infoModal = document.getElementById('info-modal');
+        document.getElementById('btn-info').onclick = () => infoModal.classList.remove('hidden');
+        document.getElementById('info-close').onclick = () => infoModal.classList.add('hidden');
 
-        updateGalleryThumbnail();
-    });
-
-    // Gallery Modal Management
-    galleryBtn.addEventListener('click', () => {
-        renderGalleryGrid();
-        galleryModal.classList.add('open');
-    });
-    closeGalleryModal.addEventListener('click', () => galleryModal.classList.remove('open'));
-
-    function updateGalleryThumbnail() {
-        if (savedPhotos.length > 0) {
-            galleryThumbImg.src = savedPhotos[0];
-            galleryThumbImg.style.display = 'block';
-            galleryPlaceholderIcon.style.display = 'none';
-        } else {
-            galleryThumbImg.style.display = 'none';
-            galleryPlaceholderIcon.style.display = 'block';
-        }
-    }
-
-    function renderGalleryGrid() {
-        galleryGrid.innerHTML = '';
-        galleryCount.textContent = savedPhotos.length;
-        savedPhotos.forEach((photoUrl, index) => {
-            const item = document.createElement('div');
-            item.className = 'gallery-item';
-            item.innerHTML = `<img src="${photoUrl}" alt="Study">`;
-            item.addEventListener('click', () => openPhotoViewer(index));
-            galleryGrid.appendChild(item);
-        });
-    }
-
-    // Photo Detail Viewer
-    function openPhotoViewer(index) {
-        viewingPhotoIndex = index;
-        viewerImg.src = savedPhotos[index];
-        viewerModal.classList.add('open');
-    }
-
-    closeViewerModal.addEventListener('click', () => viewerModal.classList.remove('open'));
-
-    deletePhotoBtn.addEventListener('click', () => {
-        if (viewingPhotoIndex !== null) {
-            savedPhotos.splice(viewingPhotoIndex, 1);
-            localStorage.setItem('atelier_lens_photos', JSON.stringify(savedPhotos));
-            viewerModal.classList.remove('open');
-            updateGalleryThumbnail();
-            renderGalleryGrid();
-            viewingPhotoIndex = null;
-        }
-    });
-
-    downloadPhotoBtn.addEventListener('click', () => {
-        if (viewingPhotoIndex !== null) {
-            const link = document.createElement('a');
-            link.download = `AtelierStudy-${Date.now()}.jpg`;
-            link.href = savedPhotos[viewingPhotoIndex];
-            link.click();
-        }
-    });
-
-    // Initial boot
-    updateGalleryThumbnail();
-    initCamera();
-</script>
-
+        window.onload = () => {
+            renderFilterTray();
+            initCamera();
+            document.querySelector('[data-mode="none"]').classList.remove('hidden');
+        };
+    </script>
 </body>
 </html>
